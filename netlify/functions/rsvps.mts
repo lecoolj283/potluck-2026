@@ -86,7 +86,7 @@ async function notifyHost(entry: any, siteUrl: string) {
     const guests = rows.reduce((n: number, r: any) => n + (Number(r.partySize) || 1), 0)
     const home = entry.residency === "guest"
       ? "Guest" + (entry.invitedBy ? ` (invited by ${entry.invitedBy})` : "")
-      : entry.unit ? `Apt ${entry.unit}` : "Apt not given"
+      : entry.unit ? `Apt ${entry.unit}` : entry.residency === "resident" ? "Resident (no apt given)" : "Apt not given"
     const lines: [string, string][] = [
       ["Name", entry.name],
       ["Lives here?", home],
@@ -113,7 +113,7 @@ ${lines.map(([k, v]) => `<tr><td style="padding:6px 14px 6px 0;color:#6b5d4b;ver
       body: JSON.stringify({
         from: Netlify.env.get("NOTIFY_FROM") || "Potluck Sign-ups <onboarding@resend.dev>",
         to: [to],
-        subject: `New potluck sign-up: ${entry.name} is bringing ${entry.dish}`,
+        subject: `New potluck sign-up: ${entry.name} is bringing ${entry.dish} (${guests} ${guests === 1 ? "person" : "people"} coming)`,
         html,
         text,
       }),
@@ -156,7 +156,6 @@ export default async (req: Request, context: Context) => {
       const partySize = Math.max(1, Math.min(10, parseInt(body.partySize, 10) || 1))
       if (!name || !dish) return json({ error: "Please enter both your name and the dish you plan to bring." }, 400)
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Please enter a valid email address." }, 400)
-      if (residency === "resident" && !unit) return json({ error: "Please enter your apartment number." }, 400)
 
       const s = store()
       const id = "rsvp-" + Date.now().toString(36) + "-" + crypto.randomUUID().slice(0, 8)

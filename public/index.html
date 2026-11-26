@@ -219,6 +219,7 @@
       background-repeat: no-repeat; background-position: right 14px center; padding-right: 38px; }
     .form-grid { display: grid; gap: 14px; }
     @media (min-width: 520px) { .form-grid.cols-2 { grid-template-columns: 1fr 1fr; } .form-grid.cols-3 { grid-template-columns: minmax(0, 1fr) 132px; } }
+    .field-note { margin-top: 6px; font-size: 13px; color: var(--muted); }
     .seg { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 14px; background: #f3e3cb; border: 1.5px solid #e2cfb2; }
     .seg::before { content: ''; position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 10px; background: var(--pine);
       box-shadow: 0 6px 14px -8px rgba(27,46,22,.9); transition: transform .32s var(--ease-out); }
@@ -871,8 +872,9 @@
                 <button type="button" role="radio" aria-checked="false" data-residency="guest">I'm a guest</button>
               </div>
               <div id="resident-fields" class="seg-panel mt-3">
-                <label for="guest-unit" class="field-label">Apartment #</label>
-                <input id="guest-unit" type="text" inputmode="numeric" placeholder="412" class="input" />
+                <label for="guest-unit" class="field-label">Apartment # <em>(optional, private)</em></label>
+                <input id="guest-unit" type="text" inputmode="numeric" placeholder="412" class="input" aria-describedby="unit-note" />
+                <p id="unit-note" class="field-note">Only Leland sees this.</p>
               </div>
               <div id="guest-fields" class="seg-panel mt-3 hidden">
                 <label for="guest-invited" class="field-label">Who invited you? <em>(optional)</em></label>
@@ -1222,13 +1224,12 @@
       });
       document.getElementById('resident-fields').classList.toggle('hidden', isGuest);
       document.getElementById('guest-fields').classList.toggle('hidden', !isGuest);
-      document.getElementById('guest-unit').required = !isGuest;
     }
 
     function residencyLabel(r) {
       if (r.residency === 'guest') return 'Guest' + (r.invitedBy ? ` (invited by ${r.invitedBy})` : '');
       if (r.unit) return `Apt ${r.unit}`;
-      return 'Apt not given';
+      return r.residency === 'resident' ? 'Resident' : 'Apt not given';
     }
 
     function renderDietaryPicker() {
@@ -1678,12 +1679,6 @@
 
         if (!name || !dish) {
           rsvpError.textContent = 'Please enter both your name and the dish you plan to bring.';
-          rsvpError.classList.remove('hidden');
-          return;
-        }
-
-        if (residency === 'resident' && !unit) {
-          rsvpError.textContent = 'Please enter your apartment number, or choose "I\'m a guest".';
           rsvpError.classList.remove('hidden');
           return;
         }
