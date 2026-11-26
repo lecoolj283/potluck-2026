@@ -66,6 +66,65 @@ async function allRsvps() {
   return rows.filter(Boolean).sort((a: any, b: any) => (b.createdAt || 0) - (a.createdAt || 0))
 }
 
+// Email the host about each new sign-up (optional).
+// Needs two Netlify environment variables, never stored in this public repo:
+//   RESEND_API_KEY  - an API key from resend.com
+//   NOTIFY_EMAIL    - where to send it (the email the Resend account was created with)
+// If either is missing, or the email service is down, the sign-up still succeeds.
+const CATEGORY_LABELS: Record<string, string> = {
+  mains: "Main Dishes", sides: "Side Dishes", apps: "Appetizers & Dips",
+  salads: "Salads & Fresh Veggies", breads: "Breads & Rolls", desserts: "Desserts",
+}
+const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string))
+
+async function notifyHost(entry: any, siteUrl: string) {
+  const apiKey = Netlify.env.get("RESEND_API_KEY")
+  const to = Netlify.env.get("NOTIFY_EMAIL")
+  if (!apiKey || !to) return
+  try {
+    const rows = (await allRsvps()).filter((r: any) => !r.sample)
+    const guests = rows.reduce((n: number, r: any) => n + (Number(r.partySize) || 1), 0)
+    const home = entry.residency === "guest"
+      ? "Guest" + (entry.invitedBy ? ` (invited by ${entry.invitedBy})` : "")
+      : entry.unit ? `Apt ${entry.unit}` : "Apt not given"
+    const lines: [string, string][] = [
+      ["Name", entry.name],
+      ["Lives here?", home],
+      ["Email", entry.email],
+      ["People", String(entry.partySize)],
+      ["Bringing", `${entry.dish} (${CATEGORY_LABELS[entry.category] || entry.category})`],
+    ]
+    if (entry.tags?.length) lines.push(["Dietary notes", entry.tags.join(", ")])
+    const html = `<div style="font-family:Georgia,serif;color:#2e281f;max-width:520px">
+<h2 style="color:#26401f;margin:0 0 4px">${esc(entry.name)} signed up!</h2>
+<p style="margin:0 0 16px;color:#a83c24">2026 Potluck, Saturday Dec 12 at 5:00 PM</p>
+<table style="border-collapse:collapse;font-family:-apple-system,Segoe UI,Arial,sans-serif;font-size:15px">
+${lines.map(([k, v]) => `<tr><td style="padding:6px 14px 6px 0;color:#6b5d4b;vertical-align:top">${esc(k)}</td><td style="padding:6px 0;font-weight:600">${esc(v)}</td></tr>`).join("\n")}
+</table>
+<p style="margin:18px 0 0;font-family:-apple-system,Segoe UI,Arial,sans-serif;font-size:15px">So far: <b>${guests} ${guests === 1 ? "person" : "people"}</b> from <b>${rows.length} ${rows.length === 1 ? "sign-up" : "sign-ups"}</b>.</p>
+<p style="margin:8px 0 0;font-family:-apple-system,Segoe UI,Arial,sans-serif;font-size:15px"><a href="${esc(siteUrl)}" style="color:#a83c24">Open the Host Tracker</a></p>
+</div>`
+    const text = `${entry.name} signed up for the 2026 Potluck.\n\n` +
+      lines.map(([k, v]) => `${k}: ${v}`).join("\n") +
+      `\n\nSo far: ${guests} people from ${rows.length} sign-ups.\n${siteUrl}`
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        from: Netlify.env.get("NOTIFY_FROM") || "Potluck Sign-ups <onboarding@resend.dev>",
+        to: [to],
+        subject: `New potluck sign-up: ${entry.name} is bringing ${entry.dish}`,
+        html,
+        text,
+      }),
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!res.ok) console.error("sign-up email failed", res.status, await res.text().catch(() => ""))
+  } catch (err) {
+    console.error("sign-up email error", err)
+  }
+}
+
 const json = (data: unknown, status = 200) =>
   Response.json(data, { status, headers: { "cache-control": "no-store" } })
 
@@ -110,6 +169,7 @@ export default async (req: Request, context: Context) => {
       }
       const entry = { id, name, unit, residency, invitedBy, email, partySize, category, dish, tags, createdAt: Date.now() }
       await s.setJSON("rsvp/" + id, entry)
+      await notifyHost(entry, new URL(req.url).origin)
       return json({ rsvp: publicView(entry) }, 201)
     }
 
