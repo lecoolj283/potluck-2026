@@ -829,7 +829,6 @@
         <div class="needed-head">
           <div>
             <h2 id="needed-title" class="h-section">What the table still needs</h2>
-            <p id="needed-lede" class="lede">Each plate is a dish someone has claimed. Tap a category to bring one.</p>
           </div>
           <div class="headcount">
             <div class="row"><span><strong id="hero-guest-count">0 neighbors</strong> coming</span><span>Goal: 50+</span></div>
@@ -1202,10 +1201,6 @@
     function renderNeeded() {
       const grid = document.getElementById('needed-grid');
       const top = mostNeeded();
-      const lede = document.getElementById('needed-lede');
-      lede.textContent = top
-        ? `Not sure what to bring? ${top.label} could use the most help. Tap a category to claim a spot.`
-        : 'Every category has a full set of dishes. Extra dishes are always welcome.';
       grid.innerHTML = CATEGORIES.map(cat => {
         const count = catCount(cat.id);
         const left = catRemaining(cat);
