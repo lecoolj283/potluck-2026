@@ -88,13 +88,16 @@ export default async (req: Request, context: Context) => {
       try { body = await req.json() } catch { return json({ error: "Invalid request." }, 400) }
       const name = clean(body.name, 80)
       const dish = clean(body.dish, 120)
-      const unit = clean(body.unit, 20)
+      const residency = body.residency === "guest" ? "guest" : body.residency === "resident" ? "resident" : ""
+      const unit = residency === "guest" ? "" : clean(body.unit, 20)
+      const invitedBy = residency === "guest" ? clean(body.invitedBy, 80) : ""
       const email = clean(body.email, 160).toLowerCase()
       const category = CATEGORIES.includes(body.category) ? body.category : "mains"
       const tags = Array.isArray(body.tags) ? body.tags.filter((t: string) => TAGS.includes(t)) : []
       const partySize = Math.max(1, Math.min(10, parseInt(body.partySize, 10) || 1))
       if (!name || !dish) return json({ error: "Please enter both your name and the dish you plan to bring." }, 400)
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Please enter a valid email address." }, 400)
+      if (residency === "resident" && !unit) return json({ error: "Please enter your apartment number." }, 400)
 
       const s = store()
       const id = "rsvp-" + Date.now().toString(36) + "-" + crypto.randomUUID().slice(0, 8)
@@ -105,7 +108,7 @@ export default async (req: Request, context: Context) => {
         const existing: any = existingId ? await s.get("rsvp/" + existingId, { type: "json" }) : null
         return json({ error: "duplicate", existing: existing ? { dish: existing.dish, category: existing.category, name: publicView(existing).name } : null }, 409)
       }
-      const entry = { id, name, unit, email, partySize, category, dish, tags, createdAt: Date.now() }
+      const entry = { id, name, unit, residency, invitedBy, email, partySize, category, dish, tags, createdAt: Date.now() }
       await s.setJSON("rsvp/" + id, entry)
       return json({ rsvp: publicView(entry) }, 201)
     }

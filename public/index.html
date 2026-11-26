@@ -219,6 +219,15 @@
       background-repeat: no-repeat; background-position: right 14px center; padding-right: 38px; }
     .form-grid { display: grid; gap: 14px; }
     @media (min-width: 520px) { .form-grid.cols-2 { grid-template-columns: 1fr 1fr; } .form-grid.cols-3 { grid-template-columns: minmax(0, 1fr) 132px; } }
+    .seg { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 14px; background: #f3e3cb; border: 1.5px solid #e2cfb2; }
+    .seg::before { content: ''; position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 10px; background: var(--pine);
+      box-shadow: 0 6px 14px -8px rgba(27,46,22,.9); transition: transform .32s var(--ease-out); }
+    .seg.is-guest::before { transform: translateX(100%); }
+    .seg button { position: relative; z-index: 1; min-height: 46px; padding: 6px 8px; border-radius: 10px; font: 700 14px/1.2 var(--sans); color: var(--muted); transition: color .25s, transform .12s var(--ease-out); }
+    .seg button:active { transform: scale(.97); }
+    .seg button.is-on { color: #fff; }
+    @media (prefers-reduced-motion: no-preference) { .seg-panel:not(.hidden) { animation: riseIn .35s var(--ease-out) both; } }
+    @media (prefers-reduced-motion: reduce) { .seg::before { transition: none; } }
     #category-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .cat-pill { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 11px 12px; min-height: 60px; border-radius: 12px; text-align: left;
       background: var(--paper); border: 1.5px solid #e2cfb2; color: var(--ink); transition: background-color .18s, border-color .18s, color .18s, transform .12s var(--ease-out); }
@@ -850,16 +859,26 @@
           <p class="lede">Takes about 30 seconds. Your email stays private and is only used for event reminders.</p>
 
           <form id="rsvp-form" class="mt-5 space-y-5" novalidate>
-            <div class="form-grid cols-2">
-              <div>
-                <label for="guest-name" class="field-label">Your name</label>
-                <input id="guest-name" type="text" required autocomplete="name" placeholder="Alex Rivera" class="input" />
+            <div>
+              <label for="guest-name" class="field-label">Your name</label>
+              <input id="guest-name" type="text" required autocomplete="name" placeholder="Alex Rivera" class="input" />
+            </div>
+
+            <fieldset>
+              <legend class="field-label">Do you live here?</legend>
+              <div id="residency-toggle" class="seg" role="radiogroup" aria-label="Resident or guest">
+                <button type="button" role="radio" aria-checked="true" data-residency="resident" class="is-on">I live at The Edmund</button>
+                <button type="button" role="radio" aria-checked="false" data-residency="guest">I'm a guest</button>
               </div>
-              <div>
-                <label for="guest-unit" class="field-label">Apt # <em>(optional)</em></label>
+              <div id="resident-fields" class="seg-panel mt-3">
+                <label for="guest-unit" class="field-label">Apartment #</label>
                 <input id="guest-unit" type="text" inputmode="numeric" placeholder="412" class="input" />
               </div>
-            </div>
+              <div id="guest-fields" class="seg-panel mt-3 hidden">
+                <label for="guest-invited" class="field-label">Who invited you? <em>(optional)</em></label>
+                <input id="guest-invited" type="text" autocomplete="off" placeholder="Leland, or a friend in the building" class="input" />
+              </div>
+            </fieldset>
 
             <div class="form-grid cols-3">
               <div>
@@ -1014,7 +1033,7 @@
           <table class="w-full text-left border-collapse text-xs sm:text-sm">
             <thead>
               <tr class="bg-[#fbf1e2] text-[#6b5d4b] text-[11px] uppercase tracking-wider border-b border-[#ecdcc4]">
-                <th class="py-2.5 px-4 font-semibold">Name / Apt</th>
+                <th class="py-2.5 px-4 font-semibold">Name / Home</th>
                 <th class="py-2.5 px-4 font-semibold">Email</th>
                 <th class="py-2.5 px-4 font-semibold text-center">Guests</th>
                 <th class="py-2.5 px-4 font-semibold">Category</th>
@@ -1093,6 +1112,7 @@
       view: 'guest',
       selectedCategory: 'mains',
       selectedTags: [],
+      residency: 'resident',
       boardFilter: 'all',
       hostSearch: '',
       rsvps: [],
@@ -1189,6 +1209,26 @@
           </button>
         `;
       }).join('');
+    }
+
+    function renderResidency() {
+      const isGuest = state.residency === 'guest';
+      const seg = document.getElementById('residency-toggle');
+      seg.classList.toggle('is-guest', isGuest);
+      seg.querySelectorAll('[data-residency]').forEach(b => {
+        const on = b.getAttribute('data-residency') === state.residency;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-checked', String(on));
+      });
+      document.getElementById('resident-fields').classList.toggle('hidden', isGuest);
+      document.getElementById('guest-fields').classList.toggle('hidden', !isGuest);
+      document.getElementById('guest-unit').required = !isGuest;
+    }
+
+    function residencyLabel(r) {
+      if (r.residency === 'guest') return 'Guest' + (r.invitedBy ? ` (invited by ${r.invitedBy})` : '');
+      if (r.unit) return `Apt ${r.unit}`;
+      return 'Apt not given';
     }
 
     function renderDietaryPicker() {
@@ -1338,7 +1378,9 @@
           (r.name || '').toLowerCase().includes(q) ||
           (r.email || '').toLowerCase().includes(q) ||
           (r.dish || '').toLowerCase().includes(q) ||
-          (r.unit || '').toLowerCase().includes(q)
+          (r.unit || '').toLowerCase().includes(q) ||
+          (r.invitedBy || '').toLowerCase().includes(q) ||
+          (r.residency === 'guest' && 'guest'.includes(q))
         );
       });
 
@@ -1356,7 +1398,7 @@
         <tr class="hover:bg-[#fff6ea]">
           <td class="py-3 px-4">
             <div class="font-semibold text-[#2e281f]">${escapeHtml(r.name)}</div>
-            <div class="text-[11px] text-[#6b5d4b]">${r.unit ? `Apt ${escapeHtml(r.unit)}` : 'No apt listed'}${r.sample ? ' &middot; <span class="font-semibold text-[#a83c24]">Sample (fake)</span>' : ''}</div>
+            <div class="text-[11px] text-[#6b5d4b]">${r.residency === 'guest' ? '<span class="font-semibold text-[#26401f]">Guest</span>' + (r.invitedBy ? ` &middot; invited by ${escapeHtml(r.invitedBy)}` : '') : escapeHtml(residencyLabel(r))}${r.sample ? ' &middot; <span class="font-semibold text-[#a83c24]">Sample (fake)</span>' : ''}</div>
           </td>
           <td class="py-3 px-4 text-[#4f4536] font-medium">${escapeHtml(r.email)}</td>
           <td class="py-3 px-4 text-center font-bold text-[#26401f]">${Number(r.partySize) || 1}</td>
@@ -1398,6 +1440,7 @@
       hostBtn.setAttribute('aria-pressed', String(!isGuest));
 
       renderCategoryPicker();
+      renderResidency();
       renderDietaryPicker();
       renderNeeded();
       renderAwards();
@@ -1433,6 +1476,8 @@
       }
       document.body.removeChild(ta);
     }
+
+    function rsvpErrorBox() { return document.getElementById('rsvp-error'); }
 
     function scrollToEl(el, block) {
       if (!el) return;
@@ -1544,6 +1589,15 @@
         if (btn) bringCategory(btn.getAttribute('data-need-cat'));
       });
 
+      // Resident / guest toggle
+      document.getElementById('residency-toggle').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-residency]');
+        if (!btn) return;
+        state.residency = btn.getAttribute('data-residency');
+        renderResidency();
+        rsvpErrorBox().classList.add('hidden');
+      });
+
       // Category picker delegation
       document.getElementById('category-picker').addEventListener('click', (e) => {
         const btn = e.target.closest('[data-cat-id]');
@@ -1614,7 +1668,9 @@
         rsvpSuccess.classList.add('hidden');
 
         const name = document.getElementById('guest-name').value.trim();
-        const unit = document.getElementById('guest-unit').value.trim();
+        const residency = state.residency;
+        const unit = residency === 'guest' ? '' : document.getElementById('guest-unit').value.trim();
+        const invitedBy = residency === 'guest' ? document.getElementById('guest-invited').value.trim() : '';
         const emailRaw = document.getElementById('guest-email').value.trim();
         const emailNorm = emailRaw.toLowerCase();
         const partySize = Math.max(1, Math.min(10, parseInt(document.getElementById('guest-party').value, 10) || 1));
@@ -1622,6 +1678,12 @@
 
         if (!name || !dish) {
           rsvpError.textContent = 'Please enter both your name and the dish you plan to bring.';
+          rsvpError.classList.remove('hidden');
+          return;
+        }
+
+        if (residency === 'resident' && !unit) {
+          rsvpError.textContent = 'Please enter your apartment number, or choose "I\'m a guest".';
           rsvpError.classList.remove('hidden');
           return;
         }
@@ -1640,7 +1702,7 @@
           res = await fetch(API, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ name, unit, email: emailNorm, partySize, category: state.selectedCategory, dish, tags: [...state.selectedTags] })
+            body: JSON.stringify({ name, unit, residency, invitedBy, email: emailNorm, partySize, category: state.selectedCategory, dish, tags: [...state.selectedTags] })
           });
           data = await res.json().catch(() => ({}));
         } catch (err) {
@@ -1670,6 +1732,8 @@
         state.rsvps = [entry, ...state.rsvps.filter(r => r.id !== entry.id)];
 
         rsvpForm.reset();
+        state.residency = 'resident';
+        renderResidency();
         state.selectedTags = [];
         state.boardFilter = 'all';
 
@@ -1744,12 +1808,14 @@
 
       // Export CSV
       document.getElementById('export-csv-btn').addEventListener('click', () => {
-        const headers = ['Name', 'Apt', 'Email', 'Guests', 'Category', 'Dish', 'Dietary Notes'];
+        const headers = ['Name', 'Apt', 'Resident or Guest', 'Invited By', 'Email', 'Guests', 'Category', 'Dish', 'Dietary Notes'];
         const csvRows = [headers.join(',')];
         hostList().forEach(r => {
           const vals = [
             r.name,
             r.unit || '',
+            r.residency === 'guest' ? 'Guest' : (r.residency === 'resident' || r.unit ? 'Resident' : ''),
+            r.invitedBy || '',
             r.email,
             r.partySize,
             getCategoryLabel(r.category),
