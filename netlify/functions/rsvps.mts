@@ -73,7 +73,7 @@ async function allRsvps() {
 // If either is missing, or the email service is down, the sign-up still succeeds.
 const CATEGORY_LABELS: Record<string, string> = {
   mains: "Main Dishes", sides: "Side Dishes", apps: "Appetizers & Dips",
-  salads: "Salads & Fresh Veggies", breads: "Breads & Rolls", desserts: "Desserts",
+  salads: "Salads & Fresh Veggies", breads: "Just for Fun", desserts: "Desserts",
 }
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string))
 

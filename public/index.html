@@ -764,7 +764,7 @@
         </div>
 
         <div class="invite-copy">
-          <p>A cozy holiday night with your neighbors. Homemade or Wegmans, every dish counts.</p>
+          <p>A cozy holiday night with your neighbors. Homemade or Wegmans, every dish counts. <strong>No cooking required:</strong> snacks, drinks and paper goods are welcome too!</p>
           <p class="vote">Vote for your favorites. Winners take home <a href="#awards-section" id="award-link" class="award-link">an award</a>.</p>
 
           <div class="details">
@@ -880,7 +880,7 @@
             <h2 id="needed-title" class="h-section">What the table still needs</h2>
           </div>
           <div class="headcount">
-            <div class="row"><span><strong id="hero-guest-count">0 neighbors</strong> coming</span><span>Goal: 50+</span></div>
+            <div class="row"><span><strong id="hero-guest-count">0 neighbors</strong> coming</span><span>Goal: 30+</span></div>
             <div class="meter" role="presentation"><i id="hero-progress-bar" style="width:0%"></i></div>
           </div>
         </div>
@@ -1005,7 +1005,7 @@
         <div class="bg-white rounded-xl border border-[#ecdcc4] p-4 shadow-sm">
           <p class="text-[11px] font-semibold uppercase tracking-wider text-[#6b5d4b]">Total Guests</p>
           <p id="kpi-guests" class="text-2xl font-extrabold text-[#26401f] mt-1">0</p>
-          <p class="text-[11px] text-[#6b5d4b] mt-0.5">Goal: 50+ neighbors</p>
+          <p class="text-[11px] text-[#6b5d4b] mt-0.5">Goal: 30+ neighbors</p>
         </div>
         <div class="bg-white rounded-xl border border-[#ecdcc4] p-4 shadow-sm">
           <p class="text-[11px] font-semibold uppercase tracking-wider text-[#6b5d4b]">RSVPs / Households</p>
@@ -1124,16 +1124,16 @@
   </div>
   <script>
     const STORAGE_KEY = 'edmund_potluck_rsvps_v2';
-    const GOAL_GUESTS = 50;
+    const GOAL_GUESTS = 30;
     const REDUCED_MOTION = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
     const CATEGORIES = [
-      { id: 'mains', label: 'Main Dishes', target: 8 },
-      { id: 'sides', label: 'Side Dishes', target: 8 },
-      { id: 'apps', label: 'Appetizers & Dips', target: 7 },
-      { id: 'salads', label: 'Salads & Fresh Veggies', target: 5 },
-      { id: 'breads', label: 'Breads & Rolls', target: 5 },
-      { id: 'desserts', label: 'Desserts', target: 8 }
+      { id: 'mains', label: 'Main Dishes', target: 5 },
+      { id: 'sides', label: 'Side Dishes', target: 5 },
+      { id: 'apps', label: 'Appetizers & Dips', target: 4 },
+      { id: 'salads', label: 'Salads & Fresh Veggies', target: 3 },
+      { id: 'breads', label: 'Just for Fun', target: 5, open: true }, // id kept as 'breads' so earlier sign-ups still match
+      { id: 'desserts', label: 'Desserts', target: 5 }
     ];
 
     const DIETARY_TAGS = [
@@ -1209,7 +1209,7 @@
     }
 
     function catCount(catId) { return state.rsvps.filter(r => r.category === catId).length; }
-    function catRemaining(cat) { return Math.max(0, cat.target - catCount(cat.id)); }
+    function catRemaining(cat) { return cat.open ? 0 : Math.max(0, cat.target - catCount(cat.id)); }
     function mostNeeded() {
       let best = null, bestScore = 0;
       CATEGORIES.forEach(cat => {
@@ -1237,7 +1237,7 @@
       wrap.innerHTML = CATEGORIES.map(cat => {
         const isActive = state.selectedCategory === cat.id;
         const left = catRemaining(cat);
-        const status = left > 0 ? `${left} more needed` : `${catCount(cat.id)} coming`;
+        const status = cat.open ? 'No cooking required!' : left > 0 ? `${left} more needed` : `${catCount(cat.id)} coming`;
         return `
           <button type="button" role="radio" aria-checked="${isActive}" data-cat-id="${cat.id}" class="cat-pill ${isActive ? 'active' : ''}">
             <span class="t">${escapeHtml(cat.label)}</span>
@@ -1245,6 +1245,10 @@
           </button>
         `;
       }).join('');
+      const dishInput = document.getElementById('guest-dish');
+      if (dishInput) dishInput.placeholder = state.selectedCategory === 'breads'
+        ? 'Drinks, chips, or just good company'
+        : 'Baked mac & cheese, or a Wegmans charcuterie board';
     }
 
     function renderResidency() {
@@ -1287,6 +1291,17 @@
         const plates = Array.from({ length: cat.target }, (_, i) => `<span class="plate ${i < count ? 'on' : ''}"></span>`).join('');
         const extra = count > cat.target ? `<span class="plate-extra">+${count - cat.target}</span>` : '';
         const isMost = top && top.id === cat.id;
+        // "Just for Fun" has no target: no counter or tally, just a friendly note.
+        if (cat.open) return `
+          <button type="button" data-need-cat="${cat.id}" class="need is-full"
+            aria-label="${escapeHtml(cat.label)}: no cooking required. Bring one.">
+            <span class="need-top">
+              <span class="need-name">${escapeHtml(cat.label)}</span>
+              <span class="need-status" style="font-style:italic">No cooking required!</span>
+            </span>
+            <span class="need-hint" style="display:block">Drinks, snacks, paper goods, or just good company</span>
+          </button>
+        `;
         return `
           <button type="button" data-need-cat="${cat.id}" class="need ${left === 0 ? 'is-full' : ''} ${isMost ? 'is-most' : ''}"
             aria-label="${escapeHtml(cat.label)}: ${count} of ${cat.target} claimed. ${left > 0 ? left + ' more needed.' : 'Covered.'} Bring one.">
