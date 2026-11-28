@@ -1132,7 +1132,7 @@
       { id: 'sides', label: 'Side Dishes', target: 8 },
       { id: 'apps', label: 'Appetizers & Dips', target: 7 },
       { id: 'salads', label: 'Salads & Fresh Veggies', target: 5 },
-      { id: 'breads', label: 'Just for Fun', target: 5 }, // id kept as 'breads' so earlier sign-ups still match
+      { id: 'breads', label: 'Just for Fun', target: 5, open: true }, // id kept as 'breads' so earlier sign-ups still match
       { id: 'desserts', label: 'Desserts', target: 8 }
     ];
 
@@ -1209,7 +1209,7 @@
     }
 
     function catCount(catId) { return state.rsvps.filter(r => r.category === catId).length; }
-    function catRemaining(cat) { return Math.max(0, cat.target - catCount(cat.id)); }
+    function catRemaining(cat) { return cat.open ? 0 : Math.max(0, cat.target - catCount(cat.id)); }
     function mostNeeded() {
       let best = null, bestScore = 0;
       CATEGORIES.forEach(cat => {
@@ -1237,7 +1237,7 @@
       wrap.innerHTML = CATEGORIES.map(cat => {
         const isActive = state.selectedCategory === cat.id;
         const left = catRemaining(cat);
-        const status = left > 0 ? `${left} more needed` : `${catCount(cat.id)} coming`;
+        const status = cat.open ? 'No cooking required' : left > 0 ? `${left} more needed` : `${catCount(cat.id)} coming`;
         return `
           <button type="button" role="radio" aria-checked="${isActive}" data-cat-id="${cat.id}" class="cat-pill ${isActive ? 'active' : ''}">
             <span class="t">${escapeHtml(cat.label)}</span>
@@ -1291,6 +1291,17 @@
         const plates = Array.from({ length: cat.target }, (_, i) => `<span class="plate ${i < count ? 'on' : ''}"></span>`).join('');
         const extra = count > cat.target ? `<span class="plate-extra">+${count - cat.target}</span>` : '';
         const isMost = top && top.id === cat.id;
+        // "Just for Fun" has no target: no counter or tally, just a friendly note.
+        if (cat.open) return `
+          <button type="button" data-need-cat="${cat.id}" class="need is-full"
+            aria-label="${escapeHtml(cat.label)}: no cooking required. Bring one.">
+            <span class="need-top">
+              <span class="need-name">${escapeHtml(cat.label)}</span>
+              <span class="need-status">No cooking required</span>
+            </span>
+            <span class="need-hint" style="display:block">Drinks, snacks, paper goods, or just good company</span>
+          </button>
+        `;
         return `
           <button type="button" data-need-cat="${cat.id}" class="need ${left === 0 ? 'is-full' : ''} ${isMost ? 'is-most' : ''}"
             aria-label="${escapeHtml(cat.label)}: ${count} of ${cat.target} claimed. ${left > 0 ? left + ' more needed.' : 'Covered.'} Bring one.">
