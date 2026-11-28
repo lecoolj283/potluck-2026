@@ -1237,7 +1237,7 @@
       wrap.innerHTML = CATEGORIES.map(cat => {
         const isActive = state.selectedCategory === cat.id;
         const left = catRemaining(cat);
-        const status = cat.open ? 'No cooking required' : left > 0 ? `${left} more needed` : `${catCount(cat.id)} coming`;
+        const status = cat.open ? 'No cooking required!' : left > 0 ? `${left} more needed` : `${catCount(cat.id)} coming`;
         return `
           <button type="button" role="radio" aria-checked="${isActive}" data-cat-id="${cat.id}" class="cat-pill ${isActive ? 'active' : ''}">
             <span class="t">${escapeHtml(cat.label)}</span>
@@ -1297,7 +1297,7 @@
             aria-label="${escapeHtml(cat.label)}: no cooking required. Bring one.">
             <span class="need-top">
               <span class="need-name">${escapeHtml(cat.label)}</span>
-              <span class="need-status">No cooking required</span>
+              <span class="need-status" style="font-style:italic">No cooking required!</span>
             </span>
             <span class="need-hint" style="display:block">Drinks, snacks, paper goods, or just good company</span>
           </button>
